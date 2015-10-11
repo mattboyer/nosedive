@@ -1,9 +1,10 @@
 from setuptools import setup
+import version
 
 
 setup(
     name='nosedive',
-    version='0.10',
+    version=version.get_git_version(),
     url='https://github.com/mattboyer/',
     description=('Hurr Durr'),
     author='Matt Boyer',
