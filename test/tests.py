@@ -13,7 +13,6 @@ class ProductTest(TestCase):
         tester = product.Tester()
         self.assertEquals(True, tester.test(42))
         self.assertEquals('False', tester.test(41))
-        #self.fail()
 
     @patch('product.print')
     def test_two(self, mock_print):

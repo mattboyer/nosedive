@@ -5,36 +5,38 @@ import types
 
 from nose.plugins import Plugin
 
-current_test = None
-
 log = logging.getLogger('nose.plugins.depth')
 
 def _depth_tracer(frame, event, arg):
     if 'call' != event:
         return _depth_tracer
+
     # We need to find out what the test module is to determine whether or not
     # we're being called from it (however indirectly) or not.
     previous_frames = inspect.getouterframes(frame)
 
-    frame_called_from_test = False
+    # NOTE We have frame == previous_frames[0][0]
+    this_frame_called_from_test = False
     for caller_frame_info in previous_frames[1:]:
         if caller_frame_info[1] == '/home/mboyer/Hacks/StackDepthTracer/test/tests.py':
-            frame_called_from_test = True
+            this_frame_called_from_test = True
             break
-    if not frame_called_from_test:
-        return None
-    caller_frame = caller_frame_info[0]
 
-    modules_in_caller_frame_globals = [
-        obj for obj in caller_frame.f_globals.values() if type(obj) is types.ModuleType
+    if not this_frame_called_from_test:
+        return None
+
+    testcase_frame = caller_frame_info[0]
+
+    modules_in_test_frame_globals = [
+        obj for obj in testcase_frame.f_globals.values() if type(obj) is types.ModuleType
     ]
-    call_module = inspect.getmodule(frame)
-    if not call_module in modules_in_caller_frame_globals:
+
+    this_frame_module = inspect.getmodule(frame)
+    if not this_frame_module in modules_in_test_frame_globals:
         return None
 
-    log.info('Calling %s', inspect.getframeinfo(frame))
-    log.info('Test entry point %s', caller_frame_info)
-    log.info('Call module %s - is in caller frame globals? %s', call_module, (call_module in modules_in_caller_frame_globals))
+    log.info('Entering %s from module %s', frame, this_frame_module)
+    log.info('Test entry point %s', testcase_frame)
 
 class DepthPlugin(Plugin):
     # This is the name that will appear in the output of 'nosetests -p'
@@ -43,7 +45,6 @@ class DepthPlugin(Plugin):
     def prepareTestCase(self, test):
         # TODO Test this for module-level tests
         log.info('Tracing calls from %s', test)
-        current_test = test
 
         # Let's assume that this Python interpreter *does* implement
         # sys.gettrace/settrace
