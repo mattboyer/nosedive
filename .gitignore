@@ -1,0 +1,4 @@
+nosedive.egg-info/
+.coverage
+*.pyc
+RELEASE-VERSION
