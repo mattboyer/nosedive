@@ -10,9 +10,9 @@ class ProductTest(TestCase):
         self.instance = product.MainClass()
 
     def test_one(self):
-        tester = product.Tester()
-        self.assertEquals(True, tester.test(42))
-        self.assertEquals('False', tester.test(41))
+        tester = product.Delegate()
+        self.assertEquals(True, tester.business_logic(42))
+        self.assertEquals('False', tester.business_logic(41))
 
     @patch('product.print')
     def test_two(self, mock_print):
