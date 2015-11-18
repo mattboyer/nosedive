@@ -36,45 +36,45 @@ def print_frame(frame):
     )
 
 
-def tracer_factory(test_module_path):
+class TestTracer(object):
+    def __init__(self, test_module_path):
+        self.test_module_path = test_module_path
+        self.test_module_call_seen = False
+        self.modules_in_test_frame_globals = None
+        self.call_stacks = []
 
-    def _depth_tracer(frame, event, arg):
+    def __call__(self, frame, event, arg):
         if 'call' != event:
-            return _depth_tracer
-
-        # We need to find out what the test module is to determine whether or
-        # not we're being called from it (however indirectly) or not.
-        previous_frames = inspect.getouterframes(frame)
-
-        # NOTE We have frame == previous_frames[0][0]
-        if len(previous_frames) <= 1:
             return None
 
-        this_frame_called_from_test = False
-        for caller_frame_info in previous_frames[1:]:
-            if caller_frame_info[1] == test_module_path:
-                this_frame_called_from_test = True
-                break
+        if not self.test_module_call_seen:
+            # We need to determine whether or not we're being called from the
+            # test module (however indirectly).
+            previous_frames = inspect.getouterframes(frame)
 
-        if not this_frame_called_from_test:
+            # NOTE We have frame == previous_frames[0][0]
+            if len(previous_frames) <= 1:
+                return None
+
+            for caller_frame_info in previous_frames[1:]:
+                if caller_frame_info[1] == self.test_module_path:
+                    self.test_module_call_seen = True
+                    self.modules_in_test_frame_globals = [
+                        obj for obj in caller_frame_info[0].f_globals.values() if
+                        isinstance(obj, types.ModuleType)
+                    ]
+                    break
+
+        # Still not found
+        if not self.test_module_call_seen:
             return None
-
-        testcase_frame = caller_frame_info[0]
-
-        modules_in_test_frame_globals = [
-            obj for obj in testcase_frame.f_globals.values() if
-            isinstance(obj, types.ModuleType)
-        ]
 
         this_frame_module = inspect.getmodule(frame)
-        if this_frame_module not in modules_in_test_frame_globals:
+        if this_frame_module not in self.modules_in_test_frame_globals:
             return None
 
-        log.info('Entering %s', print_frame(frame))
-
-        log.info('Test entry point %s', print_frame(testcase_frame))
-
-    return _depth_tracer
+        self.call_stacks.append(frame)
+        #log.info('Entering %s', print_frame(frame))
 
 
 class DepthPlugin(Plugin):
@@ -91,7 +91,13 @@ class DepthPlugin(Plugin):
             sys.gettrace()
         except Exception as e:
             raise SystemError('NoseDive requires sys.settrace')
-        sys.settrace(tracer_factory(inspect.getmodule(test.test).__file__))
+
+        tracer = TestTracer(inspect.getmodule(test.test).__file__)
+        sys.settrace(tracer)
+
 
     def stopTest(self, test):
+        tracer = sys.gettrace()
         sys.settrace(None)
+        for product_frame in tracer.call_stacks:
+            log.info('%s', print_frame(product_frame))
