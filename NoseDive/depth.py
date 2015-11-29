@@ -113,9 +113,13 @@ class DepthPlugin(Plugin):
                     hasattr(calling_object, frame.f_code.co_name):
                 class_attr = getattr(calling_object, frame.f_code.co_name)
                 if isinstance(class_attr, types.MethodType):
+                    try:
+                        qualname = class_attr.__func__.__qualname__
+                    except AttributeError:
+                        qualname = class_attr.im_class.__name__
                     call_desc = "{module}.{callable}".format(
                         module=module_name,
-                        callable=class_attr.__func__.__qualname__,
+                        callable=qualname
                     )
 
         return "{call}() [{file}:{line}]".format(
