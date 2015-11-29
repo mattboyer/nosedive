@@ -33,7 +33,8 @@ class TestTracer(object):
                 if caller_frame_info[1] == self.test_module_path:
                     # TODO Merge these 2 attributes?
                     self.test_module_call_seen = True
-                    self.test_module_stack_idx = len(previous_frames) - frame_idx
+                    self.test_module_stack_idx = len(previous_frames) - \
+                            frame_idx
                     self.modules_in_test_frame_globals = [
                         obj for obj in caller_frame_info[0].f_globals.values() if
                         isinstance(obj, types.ModuleType)
@@ -73,7 +74,6 @@ class DepthPlugin(Plugin):
 
         tracer = TestTracer(inspect.getmodule(test.test).__file__)
         sys.settrace(tracer)
-
 
     def stopTest(self, test):
         tracer = sys.gettrace()
