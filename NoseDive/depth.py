@@ -1,9 +1,12 @@
+from __future__ import print_function
+
 import inspect
 import logging
 import sys
 import types
 
 from nose.plugins import Plugin
+
 
 log = logging.getLogger('nose.plugins.depth')
 
