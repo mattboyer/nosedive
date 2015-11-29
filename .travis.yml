@@ -1,0 +1,26 @@
+language: python 
+sudo: false
+
+python:
+        - "3.4"
+        - "3.3"
+        - "2.7"
+        - "2.6"
+
+before_install:
+        - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
+        - pip freeze
+
+install:
+        - python setup.py bdist_wheel
+        - "[[ ${TRAVIS_PYTHON_VERSION} != 2.6 ]] || pip uninstall -y argparse"
+        - pip install dist/nosedive-*.whl
+
+script:
+        - pep8 NoseDive
+        - "[[ ${TRAVIS_PYTHON_VERSION} == 2.6 ]] || pylint NoseDive"
+        - nosetests test/tests.py --with-nosedive
+
+after_success:
+        - cd ${TRAVIS_BUILD_DIR}
+        - coveralls
