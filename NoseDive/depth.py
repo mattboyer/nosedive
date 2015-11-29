@@ -30,16 +30,16 @@ class TestTracer(object):
                 return None
 
             for frame_idx, caller_frame_info in enumerate(previous_frames[1:]):
-                if caller_frame_info[1] == self.test_module_path:
-                    # TODO Merge these 2 attributes?
-                    self.test_module_call_seen = True
-                    self.test_module_stack_idx = len(previous_frames) - \
-                            frame_idx
-                    self.modules_in_test_frame_globals = [
-                        obj for obj in caller_frame_info[0].f_globals.values() if
-                        isinstance(obj, types.ModuleType)
-                    ]
-                    break
+                if caller_frame_info[1] != self.test_module_path:
+                    continue
+                # TODO Merge these 2 attributes?
+                self.test_module_call_seen = True
+                self.test_module_stack_idx = len(previous_frames) - frame_idx
+                self.modules_in_test_frame_globals = [
+                    obj for obj in caller_frame_info[0].f_globals.values() if
+                    isinstance(obj, types.ModuleType)
+                ]
+                break
 
         # Still not found
         if not self.test_module_call_seen:
