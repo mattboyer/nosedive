@@ -116,7 +116,10 @@ class DepthPlugin(Plugin):
                     try:
                         qualname = class_attr.__func__.__qualname__
                     except AttributeError:
-                        qualname = class_attr.im_class.__name__
+                        qualname = '.'.join((
+                            class_attr.im_class.__name__,
+                            class_attr.im_func.__name__
+                        ))
                     call_desc = "{module}.{callable}".format(
                         module=module_name,
                         callable=qualname
