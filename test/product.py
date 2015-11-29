@@ -1,11 +1,9 @@
-from __future__ import print_function
-
 import random
 
 class MainClass(object):
     def dispatcher(self, input):
         doer = Doer()
-        doer.do(input)
+        return doer.do(input)
 
 class Doer(object):
     def do(self, input):
@@ -14,7 +12,7 @@ class Doer(object):
             # These two calls to str and int's respective __init__()'s may
             # raise exceptions
             int_as_string = str(input)
-            print(int(int_as_string, 8))
+            return (int(int_as_string, 8))
 
 class Delegate(object):
     def business_logic(self, input):

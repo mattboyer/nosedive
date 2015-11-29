@@ -14,7 +14,8 @@ class ProductTest(TestCase):
         self.assertEquals(True, tester.business_logic(42))
         self.assertEquals('False', tester.business_logic(41))
 
-    @patch('product.print')
-    def test_two(self, mock_print):
-        self.instance.dispatcher(42)
-        self.assertEquals([call(34)], mock_print.mock_calls)
+    def test_two(self):
+        self.assertEquals(
+            34,
+            self.instance.dispatcher(42)
+        )
