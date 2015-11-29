@@ -8,38 +8,11 @@ from nose.plugins import Plugin
 log = logging.getLogger('nose.plugins.depth')
 
 
-def print_frame(frame):
-    module_name = inspect.getmodule(frame).__name__
-
-    call_desc = "{module}::{call}".format(
-        module=module_name,
-        call=frame.f_code.co_name,
-    )
-
-    # This is unreliable, there's no particular requirement for the 1st
-    # argument of instance method calls to be called 'self'
-    if 'self' in frame.f_locals:
-        calling_object = frame.f_locals.get('self')
-        if calling_object and \
-                hasattr(calling_object, frame.f_code.co_name):
-            class_attr = getattr(calling_object, frame.f_code.co_name)
-            if isinstance(class_attr, types.MethodType):
-                call_desc = "{module}.{callable}".format(
-                    module=module_name,
-                    callable=class_attr.__func__.__qualname__,
-                )
-
-    return "{call}() [{file}:{line}]".format(
-        call=call_desc,
-        file=frame.f_code.co_filename,
-        line=frame.f_lineno,
-    )
-
-
 class TestTracer(object):
     def __init__(self, test_module_path):
         self.test_module_path = test_module_path
         self.test_module_call_seen = False
+        self.test_module_stack_idx = None
         self.modules_in_test_frame_globals = None
         self.call_stacks = []
 
@@ -56,9 +29,11 @@ class TestTracer(object):
             if len(previous_frames) <= 1:
                 return None
 
-            for caller_frame_info in previous_frames[1:]:
+            for frame_idx, caller_frame_info in enumerate(previous_frames[1:]):
                 if caller_frame_info[1] == self.test_module_path:
+                    # TODO Merge these 2 attributes?
                     self.test_module_call_seen = True
+                    self.test_module_stack_idx = len(previous_frames) - frame_idx
                     self.modules_in_test_frame_globals = [
                         obj for obj in caller_frame_info[0].f_globals.values() if
                         isinstance(obj, types.ModuleType)
@@ -73,13 +48,17 @@ class TestTracer(object):
         if this_frame_module not in self.modules_in_test_frame_globals:
             return None
 
-        self.call_stacks.append(frame)
-        #log.info('Entering %s', print_frame(frame))
+        self.call_stacks.append((frame, depth))
 
 
 class DepthPlugin(Plugin):
     # This is the name that will appear in the output of 'nosetests -p'
+    # TODO Dynamically derive this from the package path
     name = 'nosedive'
+
+    def __init__(self):
+        super(DepthPlugin, self).__init__()
+        self.stacks = {}
 
     def prepareTestCase(self, test):
         # TODO Test this for module-level tests
@@ -99,5 +78,37 @@ class DepthPlugin(Plugin):
     def stopTest(self, test):
         tracer = sys.gettrace()
         sys.settrace(None)
-        for product_frame in tracer.call_stacks:
-            log.info('%s', print_frame(product_frame))
+        self.stacks[test] = tracer.call_stacks
+
+    def report(self, output_stream):
+        for test in self.stacks:
+            print("Stacks seen in test: %s" % test, file=output_stream)
+            for stack in self.stacks[test]:
+                print("\t%s" % self._print_frame(stack), file=output_stream)
+
+    def _print_frame(self, frame):
+        module_name = inspect.getmodule(frame).__name__
+
+        call_desc = "{module}::{call}".format(
+            module=module_name,
+            call=frame.f_code.co_name,
+        )
+
+        # This is unreliable, there's no particular requirement for the 1st
+        # argument of instance method calls to be called 'self'
+        if 'self' in frame.f_locals:
+            calling_object = frame.f_locals.get('self')
+            if calling_object and \
+                    hasattr(calling_object, frame.f_code.co_name):
+                class_attr = getattr(calling_object, frame.f_code.co_name)
+                if isinstance(class_attr, types.MethodType):
+                    call_desc = "{module}.{callable}".format(
+                        module=module_name,
+                        callable=class_attr.__func__.__qualname__,
+                    )
+
+        return "{call}() [{file}:{line}]".format(
+            call=call_desc,
+            file=frame.f_code.co_filename,
+            line=frame.f_lineno,
+        )
