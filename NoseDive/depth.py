@@ -11,8 +11,9 @@ log = logging.getLogger('nose.plugins.depth')
 class TestTracer(object):
     def __init__(self, test_module_path):
         self.test_module_path = test_module_path
-        self.test_module_call_seen = False
-        self.test_module_stack_idx = None
+        # This is the index of the first frame in the stack that originates in
+        # the test module
+        self.test_frame_idx = None
         self.modules_in_test_frame_globals = None
         self.call_stacks = []
 
@@ -20,36 +21,41 @@ class TestTracer(object):
         if 'call' != event:
             return None
 
-        if not self.test_module_call_seen:
+        previous_frames = inspect.getouterframes(frame)
+        if not self.test_frame_idx:
             # We need to determine whether or not we're being called from the
             # test module (however indirectly).
-            previous_frames = inspect.getouterframes(frame)
 
             # NOTE We have frame == previous_frames[0][0]
             if len(previous_frames) <= 1:
                 return None
 
-            for frame_idx, caller_frame_info in enumerate(previous_frames[1:]):
+            for frame_idx, caller_frame_info in enumerate(previous_frames):
                 if caller_frame_info[1] != self.test_module_path:
                     continue
-                # TODO Merge these 2 attributes?
-                self.test_module_call_seen = True
-                self.test_module_stack_idx = len(previous_frames) - frame_idx
+
                 self.modules_in_test_frame_globals = [
                     obj for obj in caller_frame_info[0].f_globals.values() if
                     isinstance(obj, types.ModuleType)
                 ]
-                break
+                # What if we've found a frame that belongs to a test fixture
+                # (eg. setUp) which doesn't call any product code?
+                this_frame_module = inspect.getmodule(frame)
+                if this_frame_module in self.modules_in_test_frame_globals:
+                    self.test_frame_idx = len(previous_frames) - frame_idx - 1
+                    break
 
         # Still not found
-        if not self.test_module_call_seen:
+        if not self.test_frame_idx:
             return None
 
         this_frame_module = inspect.getmodule(frame)
         if this_frame_module not in self.modules_in_test_frame_globals:
             return None
 
-        self.call_stacks.append((frame, depth))
+        self.call_stacks.append(
+            (frame, len(previous_frames) - 1 - self.test_frame_idx)
+        )
 
 
 class DepthPlugin(Plugin):
@@ -69,7 +75,7 @@ class DepthPlugin(Plugin):
         # sys.gettrace/settrace
         try:
             sys.gettrace()
-        except Exception as e:
+        except RuntimeError:
             raise SystemError('NoseDive requires sys.settrace')
 
         tracer = TestTracer(inspect.getmodule(test.test).__file__)
@@ -78,13 +84,15 @@ class DepthPlugin(Plugin):
     def stopTest(self, test):
         tracer = sys.gettrace()
         sys.settrace(None)
-        self.stacks[test] = tracer.call_stacks
+        self.stacks[test.test] = tracer.call_stacks
 
     def report(self, output_stream):
         for test in self.stacks:
             print("Stacks seen in test: %s" % test, file=output_stream)
-            for stack in self.stacks[test]:
-                print("\t%s" % self._print_frame(stack), file=output_stream)
+            for stack, depth in self.stacks[test]:
+                print("\t%s: %d" % (
+                        self._print_frame(stack), depth
+                    ), file=output_stream)
 
     def _print_frame(self, frame):
         module_name = inspect.getmodule(frame).__name__
