@@ -40,8 +40,8 @@ import types
 
 from nose.plugins import Plugin
 
-
 log = logging.getLogger('nose.plugins.nosedive')
+
 
 class TestTracer(object):
     def __init__(self, test_module_path):
