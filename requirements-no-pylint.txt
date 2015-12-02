@@ -1,0 +1,5 @@
+coverage
+coveralls
+nose
+pep8
+setuptools
