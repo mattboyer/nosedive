@@ -1,6 +1,1 @@
-coverage
-coveralls
-nose
-pep8
-pylint
-setuptools
+requirements-pylint.txt
