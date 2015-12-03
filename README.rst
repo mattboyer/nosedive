@@ -4,10 +4,6 @@
 .. image:: https://coveralls.io/repos/mattboyer/nosedive/badge.svg?branch=master
     :target: https://coveralls.io/r/mattboyer/nosedive
 
-.. image:: https://landscape.io/github/mattboyer/nosedive/master/landscape.svg?style=flat
-    :target: https://landscape.io/github/mattboyer/nosedive/master
-    :alt: Code Health
-
 .. image:: https://img.shields.io/pypi/v/nosedive.svg
     :target: https://pypi.python.org/pypi/nosedive/
     :alt: Latest Version
