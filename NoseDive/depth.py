@@ -122,14 +122,25 @@ class DepthPlugin(Plugin):
         self.stacks[test.test] = tracer.call_stacks
 
     def report(self, output_stream):
+        min_depths = {}
         for test in self.stacks:
-            print("Stacks seen in test: %s" % test, file=output_stream)
-            for stack, depth in self.stacks[test]:
-                print("\t%s: %d" % (
-                        self._print_frame(stack), depth
-                    ), file=output_stream)
+            for (stack, depth) in self.stacks[test]:
+                try:
+                    if depth < min_depths[stack]:
+                        min_depths[stack] = (depth, test)
+                except KeyError:
+                    min_depths[stack] = (depth, test)
 
-    def _print_frame(self, frame):
+        if min_depths:
+            print("--- Nosedive report ---", file=output_stream)
+
+        for stack in min_depths:
+            depth, test = min_depths[stack]
+            print("%s: %d from %s" % (
+                    self._format_frame(stack), depth, test
+                ), file=output_stream)
+
+    def _format_frame(self, frame, file_info=False):
         module_name = inspect.getmodule(frame).__name__
 
         call_desc = "{module}::{call}".format(
@@ -157,8 +168,10 @@ class DepthPlugin(Plugin):
                         callable=qualname
                     )
 
-        return "{call}() [{file}:{line}]".format(
-            call=call_desc,
-            file=frame.f_code.co_filename,
-            line=frame.f_lineno,
-        )
+        call = "{call}()".format(call=call_desc)
+        if file_info:
+            call += " [{file}:{line}]".format(
+                file=frame.f_code.co_filename,
+                line=frame.f_lineno,
+            )
+        return call
